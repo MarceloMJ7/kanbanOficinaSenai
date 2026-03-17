@@ -14,19 +14,17 @@
     const qtdAndamento = colunaAndamento.querySelectorAll('.kanban-card').length;
     const qtdConcluido = colunaConcluido.querySelectorAll('.kanban-card').length;
 
-    // Atualiza os números nas bolinhas do cabeçalho
     document.getElementById('contador-novos').innerText = qtdNovos;
     document.getElementById('contador-orcamento').innerText = qtdOrcamento;
     document.getElementById('contador-andamento').innerText = qtdAndamento;
     document.getElementById('contador-concluido').innerText = qtdConcluido;
 
-    // Esconder/Mostrar a caixa tracejada da coluna Retirada
     const caixaVazia = colunaConcluido.querySelector('.empty-state');
     if (caixaVazia) {
         if (qtdConcluido > 0) {
-            caixaVazia.classList.add('d-none'); // Esconde a caixa
+            caixaVazia.classList.add('d-none');
         } else {
-            caixaVazia.classList.remove('d-none'); // Mostra a caixa
+            caixaVazia.classList.remove('d-none');
         }
     }
 }
@@ -35,22 +33,16 @@
    INICIALIZAÇÃO E BARRA DE PESQUISA
    ========================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Atualiza os contadores assim que a tela carrega
     atualizarContadores();
 
-    // 2. Lógica da Barra de Pesquisa
     const inputBusca = document.getElementById('inputBusca');
-    
     if (inputBusca) {
         inputBusca.addEventListener('input', function() {
-            const termo = this.value.toLowerCase(); // Pega o texto e transforma em minúsculas
+            const termo = this.value.toLowerCase();
             const cartoes = document.querySelectorAll('.kanban-card');
 
             cartoes.forEach(cartao => {
-                // Lê todo o texto visível dentro do cartão (Placa, Cliente, Modelo, OS)
                 const textoCartao = cartao.innerText.toLowerCase();
-                
-                // Filtra os cartões
                 if (textoCartao.includes(termo)) {
                     cartao.style.display = ''; 
                 } else {
@@ -85,12 +77,9 @@ function soltar(event) {
     const colunaDestino = event.target.closest('.kanban-column');
     
     if (colunaDestino && cardArrastado) {
-        
         const cores = ['border-secondary', 'border-warning', 'border-primary', 'border-success'];
         
-        // Se largar na coluna Retirada (Concluído)
         if (colunaDestino.id === 'col-concluido' && origemId !== 'col-concluido') {
-            
             let badgeText = "OS";
             const badgeElement = cardArrastado.querySelector('.badge');
             if (badgeElement) {
@@ -123,7 +112,6 @@ function soltar(event) {
             });
             
         } else {
-            // Se largar em outras colunas
             cardArrastado.classList.remove(...cores);
             
             if (colunaDestino.id === 'col-novos') {
@@ -143,24 +131,88 @@ function soltar(event) {
 }
 
 /* ==========================================
-   FUNÇÃO DO MODAL (NOVO PEDIDO BALCÃO)
+   FUNÇÃO DE DELETAR CARTÃO
    ========================================== */
-let proximaOS = 1044;
+function deletarCard(elementoIcone) {
+    const cartao = elementoIcone.closest('.kanban-card');
+    let badgeText = "esta OS";
+    const badgeElement = cartao.querySelector('.badge');
+    
+    if (badgeElement) {
+        badgeText = badgeElement.innerText;
+    }
+
+    Swal.fire({
+        title: 'Excluir Serviço?',
+        text: `Tem certeza que deseja apagar ${badgeText}? Esta ação não pode ser desfeita.`,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-trash"></i> Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            cartao.remove();
+            atualizarContadores();
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Excluído!',
+                text: 'O cartão foi removido com sucesso.',
+                showConfirmButton: false,
+                timer: 1500
+            });
+        }
+    });
+}
+
+/* ==========================================
+   FUNÇÕES DO MODAL (NOVO PEDIDO BALCÃO)
+   ========================================== */
+let proximaOS = 1001; // <--- Começamos a contar do 1001 agora!
+
+function toggleDescricaoOutro() {
+    const selectServico = document.getElementById('modalTipoServico').value;
+    const divDescricao = document.getElementById('divProblemaOutro');
+    
+    if (selectServico === 'Outro') {
+        divDescricao.classList.remove('d-none');
+    } else {
+        divDescricao.classList.add('d-none');
+    }
+}
 
 function salvarPedidoManual() {
     const nome = document.getElementById('modalNome').value;
     const modelo = document.getElementById('modalModelo').value;
     const ano = document.getElementById('modalAno').value;
     const placa = document.getElementById('modalPlaca').value;
-    const problema = document.getElementById('modalProblema').value;
+    const tipoServico = document.getElementById('modalTipoServico').value;
+    let problemaFinal = "";
 
-    if(!nome || !modelo || !problema || !placa) {
+    if(!nome || !modelo || !placa || !tipoServico) {
         Swal.fire({
             icon: 'error',
             title: 'Atenção!',
-            text: 'Por favor, preencha todos os dados obrigatórios do cliente e do veículo.'
+            text: 'Por favor, preencha todos os dados obrigatórios do cliente, veículo e serviço.'
         });
         return;
+    }
+
+    if (tipoServico === 'Outro') {
+        const descricaoOutro = document.getElementById('modalProblema').value;
+        if (!descricaoOutro.trim()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Atenção!',
+                text: 'Você selecionou "Outro". Por favor, descreva o problema no campo de texto.'
+            });
+            return;
+        }
+        problemaFinal = descricaoOutro;
+    } else {
+        problemaFinal = tipoServico;
     }
 
     const dataAtual = new Date();
@@ -177,13 +229,16 @@ function salvarPedidoManual() {
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="badge bg-light text-dark border border-secondary-subtle fw-semibold">OS #${proximaOS}</span>
-                    <small class="text-muted"><i class="bi bi-clock me-1"></i>${dataHoraFormatada}</small>
+                    <div>
+                        <small class="text-muted me-2"><i class="bi bi-clock me-1"></i>${dataHoraFormatada}</small>
+                        <i class="bi bi-trash text-danger" style="cursor: pointer;" onclick="deletarCard(this)" title="Excluir OS"></i>
+                    </div>
                 </div>
                 <h6 class="card-title fw-bold mb-1 text-truncate">${modelo} (${ano})</h6>
                 <p class="card-text text-muted small mb-2"><i class="bi bi-person me-1"></i>${nome}</p>
                 
                 <div class="bg-light rounded p-2 mb-3 small text-secondary border">
-                    <i class="bi bi-tools me-1"></i>${problema}
+                    <i class="bi bi-tools me-1"></i>${problemaFinal}
                 </div>
                 
                 <div class="d-flex align-items-center justify-content-between pt-2 border-top">
@@ -203,11 +258,12 @@ function salvarPedidoManual() {
     const modalElement = document.getElementById('modalNovoPedido');
     const modalInstancia = bootstrap.Modal.getOrCreateInstance(modalElement);
     modalInstancia.hide();
+    
     document.getElementById('formNovoPedidoModal').reset();
+    document.getElementById('divProblemaOutro').classList.add('d-none');
 
     atualizarContadores();
 
-    // Alerta centralizado (sem a propriedade position: 'top-end')
     Swal.fire({
         icon: 'success',
         title: 'Pedido registrado com sucesso!',
