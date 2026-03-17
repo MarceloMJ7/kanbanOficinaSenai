@@ -1,21 +1,65 @@
 // script.js
 
 /* ==========================================
-   FUNÇÃO DE CONTADORES DINÂMICOS
+   FUNÇÃO DE CONTADORES DINÂMICOS E EMPTY STATE
    ========================================== */
    function atualizarContadores() {
-    const qtdNovos = document.getElementById('col-novos').querySelectorAll('.kanban-card').length;
-    const qtdOrcamento = document.getElementById('col-orcamento').querySelectorAll('.kanban-card').length;
-    const qtdAndamento = document.getElementById('col-andamento').querySelectorAll('.kanban-card').length;
-    const qtdConcluido = document.getElementById('col-concluido').querySelectorAll('.kanban-card').length;
+    const colunaNovos = document.getElementById('col-novos');
+    const colunaOrcamento = document.getElementById('col-orcamento');
+    const colunaAndamento = document.getElementById('col-andamento');
+    const colunaConcluido = document.getElementById('col-concluido');
 
+    const qtdNovos = colunaNovos.querySelectorAll('.kanban-card').length;
+    const qtdOrcamento = colunaOrcamento.querySelectorAll('.kanban-card').length;
+    const qtdAndamento = colunaAndamento.querySelectorAll('.kanban-card').length;
+    const qtdConcluido = colunaConcluido.querySelectorAll('.kanban-card').length;
+
+    // Atualiza os números nas bolinhas do cabeçalho
     document.getElementById('contador-novos').innerText = qtdNovos;
     document.getElementById('contador-orcamento').innerText = qtdOrcamento;
     document.getElementById('contador-andamento').innerText = qtdAndamento;
     document.getElementById('contador-concluido').innerText = qtdConcluido;
+
+    // Esconder/Mostrar a caixa tracejada da coluna Retirada
+    const caixaVazia = colunaConcluido.querySelector('.empty-state');
+    if (caixaVazia) {
+        if (qtdConcluido > 0) {
+            caixaVazia.classList.add('d-none'); // Esconde a caixa
+        } else {
+            caixaVazia.classList.remove('d-none'); // Mostra a caixa
+        }
+    }
 }
 
-document.addEventListener('DOMContentLoaded', atualizarContadores);
+/* ==========================================
+   INICIALIZAÇÃO E BARRA DE PESQUISA
+   ========================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Atualiza os contadores assim que a tela carrega
+    atualizarContadores();
+
+    // 2. Lógica da Barra de Pesquisa
+    const inputBusca = document.getElementById('inputBusca');
+    
+    if (inputBusca) {
+        inputBusca.addEventListener('input', function() {
+            const termo = this.value.toLowerCase(); // Pega o texto e transforma em minúsculas
+            const cartoes = document.querySelectorAll('.kanban-card');
+
+            cartoes.forEach(cartao => {
+                // Lê todo o texto visível dentro do cartão (Placa, Cliente, Modelo, OS)
+                const textoCartao = cartao.innerText.toLowerCase();
+                
+                // Filtra os cartões
+                if (textoCartao.includes(termo)) {
+                    cartao.style.display = ''; 
+                } else {
+                    cartao.style.display = 'none'; 
+                }
+            });
+        });
+    }
+});
 
 /* ==========================================
    FUNÇÕES DE ARRASTAR E SOLTAR (DRAG & DROP)
@@ -42,12 +86,16 @@ function soltar(event) {
     
     if (colunaDestino && cardArrastado) {
         
-        // Matriz com todas as cores para podermos limpar a cor anterior
         const cores = ['border-secondary', 'border-warning', 'border-primary', 'border-success'];
         
-        // Lógica de segurança para a coluna final "Retirada (Concluído)"
+        // Se largar na coluna Retirada (Concluído)
         if (colunaDestino.id === 'col-concluido' && origemId !== 'col-concluido') {
-            const badgeText = cardArrastado.querySelector('.badge').innerText;
+            
+            let badgeText = "OS";
+            const badgeElement = cardArrastado.querySelector('.badge');
+            if (badgeElement) {
+                badgeText = badgeElement.innerText;
+            }
             
             Swal.fire({
                 title: 'Finalizar Serviço?',
@@ -60,11 +108,9 @@ function soltar(event) {
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Remove cor anterior e aplica a cor verde (Success)
                     cardArrastado.classList.remove(...cores);
                     cardArrastado.classList.add('border-success');
                     
-                    // Move o cartão e atualiza os contadores
                     colunaDestino.appendChild(cardArrastado);
                     atualizarContadores();
                     
@@ -74,11 +120,10 @@ function soltar(event) {
                         'success'
                     );
                 }
-                // Se o utilizador clicar em cancelar, o código simplesmente ignora e o cartão fica onde estava com a cor original!
             });
             
         } else {
-            // Se foi largado em qualquer outra coluna (muda imediatamente)
+            // Se largar em outras colunas
             cardArrastado.classList.remove(...cores);
             
             if (colunaDestino.id === 'col-novos') {
@@ -106,9 +151,10 @@ function salvarPedidoManual() {
     const nome = document.getElementById('modalNome').value;
     const modelo = document.getElementById('modalModelo').value;
     const ano = document.getElementById('modalAno').value;
+    const placa = document.getElementById('modalPlaca').value;
     const problema = document.getElementById('modalProblema').value;
 
-    if(!nome || !modelo || !problema) {
+    if(!nome || !modelo || !problema || !placa) {
         Swal.fire({
             icon: 'error',
             title: 'Atenção!',
@@ -117,18 +163,33 @@ function salvarPedidoManual() {
         return;
     }
 
-    // Cartão já nasce com a cor border-secondary
+    const dataAtual = new Date();
+    const dia = dataAtual.getDate().toString().padStart(2, '0');
+    const mes = (dataAtual.getMonth() + 1).toString().padStart(2, '0'); 
+    const anoAtual = dataAtual.getFullYear();
+    const hora = dataAtual.getHours().toString().padStart(2, '0');
+    const minuto = dataAtual.getMinutes().toString().padStart(2, '0');
+    
+    const dataHoraFormatada = `${dia}/${mes}/${anoAtual}, ${hora}:${minuto}`;
+
     const novoCardHTML = `
         <div class="card kanban-card shadow-sm border-0 border-start border-secondary border-4 mt-2" draggable="true" ondragstart="arrastar(event)" id="card-${proximaOS}">
             <div class="card-body p-3">
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="badge bg-light text-secondary border border-secondary fw-semibold">OS #${proximaOS}</span>
-                    <small class="text-muted"><i class="bi bi-clock me-1"></i>Agora mesmo</small>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-light text-dark border border-secondary-subtle fw-semibold">OS #${proximaOS}</span>
+                    <small class="text-muted"><i class="bi bi-clock me-1"></i>${dataHoraFormatada}</small>
                 </div>
-                <h6 class="card-title fw-bold mb-1">${modelo} (${ano})</h6>
+                <h6 class="card-title fw-bold mb-1 text-truncate">${modelo} (${ano})</h6>
                 <p class="card-text text-muted small mb-2"><i class="bi bi-person me-1"></i>${nome}</p>
-                <div class="alert alert-danger py-1 px-2 small mb-2 border-0">
-                    <i class="bi bi-exclamation-triangle-fill me-1"></i>${problema}
+                
+                <div class="bg-light rounded p-2 mb-3 small text-secondary border">
+                    <i class="bi bi-tools me-1"></i>${problema}
+                </div>
+                
+                <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                    <span class="badge bg-white text-dark border border-2 border-dark px-2 py-1" style="letter-spacing: 1px; font-family: monospace; font-size: 0.8rem;">
+                        ${placa.toUpperCase()}
+                    </span>
                 </div>
             </div>
         </div>
@@ -146,10 +207,10 @@ function salvarPedidoManual() {
 
     atualizarContadores();
 
+    // Alerta centralizado (sem a propriedade position: 'top-end')
     Swal.fire({
-        position: 'top-end',
         icon: 'success',
-        title: 'Pedido registado e gerado na Triagem!',
+        title: 'Pedido registrado com sucesso!',
         showConfirmButton: false,
         timer: 2000
     });
